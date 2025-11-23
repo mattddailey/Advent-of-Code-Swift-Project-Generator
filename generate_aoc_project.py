@@ -57,45 +57,79 @@ DerivedData/
 Inputs/
 """
 
-def protocol_file():
-    return """import ArgumentParser
+def protocol_file(year: int):
+    return f"""import ArgumentParser
 import Foundation
 
-protocol AdventOfCodeDay: AsyncParsableCommand {
-  static var day: Int { get }
+protocol AdventOfCodeDay: AsyncParsableCommand {{
+  static var day: Int {{ get }}
 
   func parse(_ input: String) async throws -> String
   func part1(_ input: String) async throws -> String
   func part2(_ input: String) async throws -> String
-}
+}}
 
-extension AdventOfCodeDay {
-  static var configuration: CommandConfiguration {
+extension AdventOfCodeDay {{
+  static var configuration: CommandConfiguration {{
     .init(
       commandName: "day\\(Self.day)",
       abstract: "Run Advent of Code Day \\(Self.day)"
     )
-  }
+  }}
 
-  mutating func run() async throws {
-    let raw = try loadInputFile(day: Self.day)
-    let parsed = try await parse(raw)
-    let p1 = try await part1(parsed)
-    let p2 = try await part2(parsed)
-    print("Part 1: \\(p1)")
-    print("Part 2: \\(p2)")
-  }
+  mutating func run() async throws {{
+    let input = try await input(day: Self.day)
+    let parsed = try await parse(input)
+    let part1 = try await part1(parsed)
+    let part2 = try await part2(parsed)
+    print("Part 1: \(part1)")
+    print("Part 2: \(part2)")
+  }}
 
-  private func loadInputFile(day: Int) throws -> String {
+  private func input(day: Int) async throws -> String {{
     let fileName = "day" + String(format: "%02d", day) + ".txt"
-
-    guard let url = Bundle.module.url(forResource: fileName, withExtension: nil, subdirectory: "Inputs") else {
-      fatalError("Input file for day \(day) not found in 'Inputs' bundle directory or current directory (looked for \(fileName))")
-    }
     
-    return try String(contentsOf: url, encoding: .utf8)
-  }
-}
+    guard let fileURL = Bundle.module.url(forResource: fileName, withExtension: nil, subdirectory: "Inputs") else {{
+      return try await remoteInput(day: day)
+    }}
+    
+    let inputFileString = try String(contentsOf: fileURL, encoding: .utf8)
+    
+    guard !inputFileString.isEmpty else {{
+      return try await remoteInput(day: day)
+    }}
+    
+    print("Using local input for day \(day)")
+    return inputFileString
+  }}
+  
+  private func remoteInput(day: Int) async throws -> String {{
+    print("Downloading input for day \(day)...")
+    
+    guard let session = ProcessInfo.processInfo.environment["AOC_SESSION"], !session.isEmpty else {{
+      fatalError("Please set your AOC_SESSION environment variable to your Advent of Code session cookie.")
+    }}
+    
+    guard let url = URL(string: "https://adventofcode.com/{year}/day/\(day)/input") else {{
+      fatalError("Failed to construct input URL for day \(day), year {year}")
+    }}
+    
+    var request = URLRequest(url: url)
+    request.setValue("session=\(session)", forHTTPHeaderField: "Cookie")
+
+    let (data, response) = try await URLSession.shared.data(for: request)
+
+    guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {{
+      fatalError("Failed to download input for day \(day)")
+    }}
+
+    guard let downloadedString = String(data: data, encoding: .utf8) else {{
+      fatalError("Unable to decode downloaded input data for day \(day)")
+    }}
+    
+    return downloadedString
+  }}
+}}
 """
 
 def root_cli(subcommands, year: int):
@@ -187,7 +221,7 @@ def main():
     write(project_dir / "Package.swift", package_swift(project_name))
     write(project_dir / ".gitignore", gitignore_contents())
 
-    write(sources / "AdventOfCodeDay.swift", protocol_file())
+    write(sources / "AdventOfCodeDay.swift", protocol_file(year))
 
     subcommands = []
     for day in range(1, days + 1):

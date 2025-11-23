@@ -2,16 +2,15 @@
 
 import os
 import sys
+import subprocess
 from pathlib import Path
 
-
 def write(path: Path, contents: str):
-  path.parent.mkdir(parents=True, exist_ok=True)
-  path.write_text(contents, encoding="utf-8")
-
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(contents, encoding="utf-8")
 
 def package_swift(project_name: str):
-  return f"""// swift-tools-version: 6.0
+    return f"""// swift-tools-version: 6.0
 
 import PackageDescription
 
@@ -37,9 +36,28 @@ let package = Package(
 )
 """
 
+def gitignore_contents():
+    return """# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Xcode
+.DS_Store
+xcuserdata/
+DerivedData/
+*.xcworkspace
+*.xcodeproj
+
+# Logs
+*.log
+
+# Advent of Code Inputs
+Inputs/
+"""
 
 def protocol_file():
-  return """import ArgumentParser
+    return """import ArgumentParser
 import Foundation
 
 protocol AdventOfCodeDay: AsyncParsableCommand {
@@ -75,12 +93,11 @@ extension AdventOfCodeDay {
 }
 """
 
-
 def root_cli(subcommands, year: int):
-  subs = ",\n      ".join(subcommands)
-  struct_name = f"AdventOfCode{year}"
-  cmd_name = f"aoc-{year}"
-  return f"""import ArgumentParser
+    subs = ",\n      ".join(subcommands)
+    struct_name = f"AdventOfCode{year}"
+    cmd_name = f"aoc-{year}"
+    return f"""import ArgumentParser
 
 @main
 struct {struct_name}: AsyncParsableCommand {{
@@ -94,9 +111,8 @@ struct {struct_name}: AsyncParsableCommand {{
 }}
 """
 
-
 def day_file(day: int):
-  return f"""import ArgumentParser
+    return f"""import ArgumentParser
 
 struct Day{day:02d}: AdventOfCodeDay {{
   static let day = {day}
@@ -115,9 +131,8 @@ struct Day{day:02d}: AdventOfCodeDay {{
 }}
 """
 
-
 def test_file(day: int, project_name: str):
-  return f"""import Testing
+    return f"""import Testing
 @testable import {project_name}
 
 struct Day{day:02d}Tests {{
@@ -149,39 +164,50 @@ struct Day{day:02d}Tests {{
 }}
 """
 
-
 def main():
-  if len(sys.argv) < 3:
-    print("Usage: python generate_aoc_project.py <year> <number_of_days>")
-    sys.exit(1)
+    if len(sys.argv) < 3:
+        print("Usage: python generate_aoc_project.py <year> <number_of_days>")
+        sys.exit(1)
 
-  year = int(sys.argv[1])
-  days = int(sys.argv[2])
-  project_name = f"AdventOfCode{year}"
+    year = int(sys.argv[1])
+    days = int(sys.argv[2])
+    project_name = f"AdventOfCode{year}"
 
-  root = Path(os.getcwd())
-  project_dir = root / project_name
-  sources = project_dir / "Sources" / project_name
-  tests = project_dir / "Tests" / f"{project_name}Tests"
-  inputs = project_dir / "Inputs"
+    root = Path(os.getcwd())
+    project_dir = root / project_name
+    sources = project_dir / "Sources" / project_name
+    tests = project_dir / "Tests" / f"{project_name}Tests"
+    inputs = project_dir / "Inputs"
 
-  write(project_dir / "Package.swift", package_swift(project_name))
-  write(sources / "AdventOfCodeDay.swift", protocol_file())
+    write(project_dir / "Package.swift", package_swift(project_name))
+    write(project_dir / ".gitignore", gitignore_contents())
 
-  subcommands = []
+    write(sources / "AdventOfCodeDay.swift", protocol_file())
 
-  for day in range(1, days + 1):
-    struct_name = f"Day{day:02d}"
-    subcommands.append(f"{struct_name}.self")
+    subcommands = []
+    for day in range(1, days + 1):
+        struct_name = f"Day{day:02d}"
+        subcommands.append(f"{struct_name}.self")
 
-    write(sources / f"{struct_name}.swift", day_file(day))
-    write(tests / f"{struct_name}Tests.swift", test_file(day, project_name))
-    write(inputs / f"day{day:02d}.txt", "")
+        write(sources / f"{struct_name}.swift", day_file(day))
+        write(tests / f"{struct_name}Tests.swift", test_file(day, project_name))
+        write(inputs / f"day{day:02d}.txt", "")
 
-  write(sources / "AdventOfCode.swift", root_cli(subcommands, year))
+    write(sources / "AdventOfCode.swift", root_cli(subcommands, year))
 
-  print(f"Generated Advent of Code Swift project for {year} with {days} days!")
+    try:
+        subprocess.run(["git", "init"], cwd=project_dir, check=True)
+        subprocess.run(["git", "add", "."], cwd=project_dir, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", f"Initial Advent of Code {year} project"],
+            cwd=project_dir,
+            check=True,
+        )
+        print("Initialized git repository.")
+    except Exception as e:
+        print("Warning: Git initialization failed:", e)
 
+    print(f"Generated Advent of Code Swift project for {year} with {days} days!")
 
 if __name__ == "__main__":
-  main()
+    main()

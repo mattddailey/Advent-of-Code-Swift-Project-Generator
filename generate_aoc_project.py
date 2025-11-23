@@ -26,7 +26,8 @@ let package = Package(
   targets: [
     .executableTarget(
       name: "{project_name}",
-      dependencies: [.product(name: "ArgumentParser", package: "swift-argument-parser")]
+      dependencies: [.product(name: "ArgumentParser", package: "swift-argument-parser")],
+      resources: [.copy("Inputs")]
     ),
     .testTarget(
       name: "{project_name}Tests",
@@ -86,8 +87,12 @@ extension AdventOfCodeDay {
   }
 
   private func loadInputFile(day: Int) throws -> String {
-    let path = "Inputs/day" + String(format: "%02d", day) + ".txt"
-    let url = URL(fileURLWithPath: path)
+    let fileName = "day" + String(format: "%02d", day) + ".txt"
+
+    guard let url = Bundle.module.url(forResource: fileName, withExtension: nil, subdirectory: "Inputs") else {
+      fatalError("Input file for day \(day) not found in 'Inputs' bundle directory or current directory (looked for \(fileName))")
+    }
+    
     return try String(contentsOf: url, encoding: .utf8)
   }
 }
@@ -177,7 +182,7 @@ def main():
     project_dir = root / project_name
     sources = project_dir / "Sources" / project_name
     tests = project_dir / "Tests" / f"{project_name}Tests"
-    inputs = project_dir / "Inputs"
+    inputs = sources / "Inputs"
 
     write(project_dir / "Package.swift", package_swift(project_name))
     write(project_dir / ".gitignore", gitignore_contents())

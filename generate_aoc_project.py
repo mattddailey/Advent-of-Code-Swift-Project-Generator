@@ -63,12 +63,13 @@ import Foundation
 
 protocol AdventOfCodeDay: AsyncParsableCommand {{
   associatedtype Input
+  associatedtype Output
   
   static var day: Int {{ get }}
 
   func parse(_ input: String) async throws -> Input
-  func part1(_ input: Input) async throws -> String
-  func part2(_ input: Input) async throws -> String
+  func part1(_ input: Input) async throws -> Output
+  func part2(_ input: Input) async throws -> Output
 }}
 
 extension AdventOfCodeDay {{
